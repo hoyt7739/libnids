@@ -15,6 +15,8 @@ See the file COPYING for license details.
 
 #define int_ntoa(x)	inet_ntoa(*((struct in_addr *)&x))
 
+const unsigned short SERVER_PORT = 6666;
+
 // struct tuple4 contains addresses and port numbers of the TCP connections
 // the following auxiliary function produces a string looking like
 // 10.0.0.1,1024,10.0.0.2,23
@@ -30,6 +32,16 @@ adres (struct tuple4 addr)
 }
 
 void
+tcp_resume_callback (struct tcphdr *tcp_hdr, struct ip *ip_hdr, int *resume)
+{
+  if (ntohs(tcp_hdr->th_dport) == SERVER_PORT) {
+    *resume = NIDS_TCP_RESUME_CLIENT;
+  } else {
+    *resume = NIDS_TCP_RESUME_SERVER;
+  }
+}
+
+void
 tcp_callback (struct tcp_stream *a_tcp, void ** this_time_not_needed)
 {
   char buf[1024];
@@ -40,16 +52,18 @@ tcp_callback (struct tcp_stream *a_tcp, void ** this_time_not_needed)
     // here we decide, if we wish to follow this stream
     // sample condition: if (a_tcp->addr.dest!=23) return;
     // in this simple app we follow each stream, so..
-      a_tcp->client.collect++; // we want data received by a client
-      a_tcp->server.collect++; // and by a server, too
-      a_tcp->server.collect_urg++; // we want urgent data received by a
-                                   // server
+      if (a_tcp->addr.dest == SERVER_PORT) {
+        a_tcp->client.collect++; // we want data received by a client
+        a_tcp->server.collect++; // and by a server, too
+        a_tcp->server.collect_urg++; // we want urgent data received by a
+                                     // server
 #ifdef WE_WANT_URGENT_DATA_RECEIVED_BY_A_CLIENT
-      a_tcp->client.collect_urg++; // if we don't increase this value,
-                                   // we won't be notified of urgent data
-                                   // arrival
+        a_tcp->client.collect_urg++; // if we don't increase this value,
+                                     // we won't be notified of urgent data
+                                     // arrival
 #endif
-      fprintf (stderr, "%s established\n", buf);
+        fprintf (stderr, "%s established\n", buf);
+      }
       return;
     }
   if (a_tcp->nids_state == NIDS_CLOSE)
@@ -65,7 +79,7 @@ tcp_callback (struct tcp_stream *a_tcp, void ** this_time_not_needed)
       return;
     }
 
-  if (a_tcp->nids_state == NIDS_DATA)
+  if (a_tcp->nids_state == NIDS_DATA || a_tcp->nids_state == NIDS_RESUME)
     {
       // new data has arrived; gotta determine in what direction
       // and if it's urgent or not
@@ -101,6 +115,7 @@ tcp_callback (struct tcp_stream *a_tcp, void ** this_time_not_needed)
                               // by data flow direction (-> or <-)
 
    write(2,hlf->data,hlf->count_new); // we print the newly arrived data
+   fprintf(stderr,"\n");
       
     }
   return ;
@@ -110,14 +125,18 @@ int
 main ()
 {
   // here we can alter libnids params, for instance:
-  // nids_params.n_hosts=256;
+  struct nids_chksum_ctl temp;
+  temp.action = NIDS_DONT_CHKSUM;
+  temp.netaddr = 0;
+  temp.mask = 0;
+  nids_register_chksum_ctl(&temp, 1);
   if (!nids_init ())
   {
   	fprintf(stderr,"%s\n",nids_errbuf);
   	exit(1);
   }
+  nids_register_tcp_resume (tcp_resume_callback);
   nids_register_tcp (tcp_callback);
   nids_run ();
   return 0;
 }
-
