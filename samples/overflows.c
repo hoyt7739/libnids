@@ -11,15 +11,18 @@ an attacker to bypass this code (note, the below routines should be improved,
 not libnids)
 */  
 
+#ifdef _WINDOWS
+#define rindex strrchr
+#define strncasecmp _strnicmp
+#else
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/in_systm.h>
 #include <arpa/inet.h>
+#include <syslog.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <syslog.h>
 #include "nids.h"
 
 #define int_ntoa(x)	inet_ntoa(*((struct in_addr *)&x))
@@ -97,7 +100,7 @@ detect_imap (struct tcp_stream *a_tcp)
   if (atoi (numbuf) > 1024)
     {
       // notify admin
-      syslog(nids_params.syslog_level,
+      SYSLOG(nids_params.syslog_level,
       "Imapd exploit attempt, connection %s\n",adres(a_tcp->addr));
       // kill the connection
       nids_killtcp (a_tcp);
@@ -184,7 +187,7 @@ do_detect_ftp (struct tcp_stream *a_tcp, struct supp **param_ptr)
 	      if (add_to_path (p->currdir, buf + path_index-offset, pi2 - path_index-remcaret))
 		{
 		  // notify admin
-		  syslog(nids_params.syslog_level,
+		  SYSLOG(nids_params.syslog_level,
 		  "Ftpd exploit attempt, connection %s\n",adres(a_tcp->addr)); 
 		  nids_killtcp (a_tcp);
 		  return;

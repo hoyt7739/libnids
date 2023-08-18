@@ -1,10 +1,6 @@
-
+#ifndef _WINDOWS
 #include <sys/types.h>
-#include <netinet/in.h>
-#include <netinet/in_systm.h>
-#include <netinet/ip.h>
-#include <netinet/tcp.h>
-#include <netinet/udp.h>
+#endif
 #include "nids.h"
 
 static struct nids_chksum_ctl * nchk;

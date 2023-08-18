@@ -4,37 +4,30 @@
 */
 
 #include <config.h>
+#ifdef _WINDOWS
+void *GetAdapterFromList(void *,int);
+#else
 #include <sys/types.h>
-#include <netinet/in.h>
-#include <netinet/in_systm.h>
-#include <netinet/ip.h>
-#include <netinet/tcp.h>
-#include <netinet/udp.h>
-#include <arpa/inet.h>
-#include <stdlib.h>
-#include <string.h>
 #include <syslog.h>
-#include <alloca.h>
-#include <pcap.h>
-#include <errno.h>
-#include <config.h>
-#if (HAVE_UNISTD_H)
+#include <arpa/inet.h>
 #include <unistd.h>
+#include <alloca.h>
+extern int set_all_promisc();
 #endif
 #include <stdlib.h>
+#include <string.h>
+#include <pcap.h>
+#include <errno.h>
+#include <stdlib.h>
+#ifdef HAVE_LIBGTHREAD_2_0
+#include <glib.h>
+#endif
+#include "nids.h"
 #include "checksum.h"
 #include "ip_fragment.h"
 #include "scan.h"
 #include "tcp.h"
 #include "util.h"
-#include "nids.h"
-#ifdef HAVE_LIBGTHREAD_2_0
-#include <glib.h>
-#endif
-
-#ifdef __linux__
-extern int set_all_promisc();
-#endif
 
 #define int_ntoa(x)	inet_ntoa(*((struct in_addr *)&x))
 extern int ip_options_compile(unsigned char *);
@@ -98,7 +91,7 @@ struct nids_prm nids_params = {
     168,			/* sk_buff_size */
     -1,				/* dev_addon */
     nids_syslog,		/* syslog() */
-    LOG_ALERT,			/* syslog_level */
+    1,				/* syslog_level */
     256,			/* scan_num_hosts */
     3000,			/* scan_delay */
     10,				/* scan_num_ports */
@@ -139,11 +132,11 @@ static void nids_syslog(int type, int errnum, struct ip *iph, void *data)
 	if (errnum != NIDS_WARN_IP_HDR) {
 	    strcpy(saddr, int_ntoa(iph->ip_src.s_addr));
 	    strcpy(daddr, int_ntoa(iph->ip_dst.s_addr));
-	    syslog(nids_params.syslog_level,
+	    SYSLOG(nids_params.syslog_level,
 		   "%s, packet (apparently) from %s to %s\n",
 		   nids_warnings[errnum], saddr, daddr);
 	} else
-	    syslog(nids_params.syslog_level, "%s\n",
+	    SYSLOG(nids_params.syslog_level, "%s\n",
 		   nids_warnings[errnum]);
 	break;
 
@@ -151,12 +144,12 @@ static void nids_syslog(int type, int errnum, struct ip *iph, void *data)
 	strcpy(saddr, int_ntoa(iph->ip_src.s_addr));
 	strcpy(daddr, int_ntoa(iph->ip_dst.s_addr));
 	if (errnum != NIDS_WARN_TCP_HDR)
-	    syslog(nids_params.syslog_level,
+	    SYSLOG(nids_params.syslog_level,
 		   "%s,from %s:%hu to  %s:%hu\n", nids_warnings[errnum],
 		   saddr, ntohs(((struct tcphdr *) data)->th_sport), daddr,
 		   ntohs(((struct tcphdr *) data)->th_dport));
 	else
-	    syslog(nids_params.syslog_level, "%s,from %s to %s\n",
+	    SYSLOG(nids_params.syslog_level, "%s,from %s to %s\n",
 		   nids_warnings[errnum], saddr, daddr);
 	break;
 
@@ -188,11 +181,11 @@ static void nids_syslog(int type, int errnum, struct ip *iph, void *data)
 	    }
 	} else
 	    strcat(buf, "various flags");
-	syslog(nids_params.syslog_level, "%s", buf);
+	SYSLOG(nids_params.syslog_level, "%s", buf);
 	break;
 
     default:
-	syslog(nids_params.syslog_level, "Unknown warning number ?\n");
+	SYSLOG(nids_params.syslog_level, "Unknown warning number ?\n");
     }
 }
 
@@ -517,22 +510,53 @@ static int open_live()
 {
     char *device;
     int promisc = 0;
+#ifdef _WINDOWS
+    char *devicet = NULL;
+    int i;
+#endif
 
     if (nids_params.device == NULL)
-	nids_params.device = pcap_lookupdev(nids_errbuf);
+        nids_params.device = pcap_lookupdev(nids_errbuf);
     if (nids_params.device == NULL)
-	return 0;
+        return 0;
+
+#ifdef _WINDOWS
+    if (!strcmp(nids_params.device, "0")) {
+        strcpy(nids_errbuf, "Invalid interface");
+        return 0;
+    }
+
+    if ((i = atoi(nids_params.device)) != 0) {
+        if (i < 0) {
+            strcpy(nids_errbuf, "Invalid interface");
+            return 0;
+        }
+
+        devicet = pcap_lookupdev(nids_errbuf);
+        if (devicet == NULL) {
+            strcpy(nids_errbuf, "Invalid interface");
+            return 0;
+        }
+        // printf("%s\n", devicet);
+        device = NULL;
+        device = GetAdapterFromList(devicet, i);
+        if (device == NULL) {
+            strcpy(nids_errbuf, "Invalid interface");
+            return 0;
+        }
+    }
+#endif
 
     device = nids_params.device;
     if (!strcmp(device, "all"))
-	device = "any";
+        device = "any";
     else
-	promisc = (nids_params.promisc != 0);
+        promisc = (nids_params.promisc != 0);
 
     if ((desc = pcap_open_live(device, 16384, promisc,
 			       nids_params.pcap_timeout, nids_errbuf)) == NULL)
 	return 0;
-#ifdef __linux__
+#ifdef _GNU
     if (!strcmp(device, "any") && nids_params.promisc
 	&& !set_all_promisc()) {
 	nids_errbuf[0] = 0;
@@ -669,8 +693,10 @@ int nids_init()
 	else
 	    nids_params.dev_addon = 0;
     }
+#ifndef _WINDOWS
     if (nids_params.syslog == nids_syslog)
 	openlog("libnids", 0, LOG_LOCAL0);
+#endif
 
     init_procs();
     tcp_init(nids_params.n_tcp_streams);
@@ -738,7 +764,11 @@ int nids_getfd()
 	strcpy(nids_errbuf, "Libnids not initialized");
 	return -1;
     }
+#ifdef _WINDOWS
+    return pcap_fileno(desc);
+#else
     return pcap_get_selectable_fd(desc);
+#endif
 }
 
 int nids_next()

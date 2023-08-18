@@ -3,12 +3,11 @@ Copyright (c) 1999 Rafal Wojtczuk <nergal@7bulls.com>. All rights reserved.
 See the file COPYING for license details.
 */
 
-
+#ifndef _WINDOWS
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/in_systm.h>
 #include <arpa/inet.h>
+#endif
 #include <string.h>
 #include <stdio.h>
 #include "nids.h"
@@ -125,16 +124,19 @@ int
 main ()
 {
   // here we can alter libnids params, for instance:
-  struct nids_chksum_ctl temp;
-  temp.action = NIDS_DONT_CHKSUM;
-  temp.netaddr = 0;
-  temp.mask = 0;
-  nids_register_chksum_ctl(&temp, 1);
+  // nids_params.n_hosts=256;
+  // nids_params.device = "";
   if (!nids_init ())
   {
   	fprintf(stderr,"%s\n",nids_errbuf);
-  	exit(1);
+  	return 1;
   }
+
+  struct nids_chksum_ctl ctl;
+  ctl.action = NIDS_DONT_CHKSUM;
+  ctl.netaddr = 0;
+  ctl.mask = 0;
+  nids_register_chksum_ctl (&ctl, 1);
   nids_register_tcp_resume (tcp_resume_callback);
   nids_register_tcp (tcp_callback);
   nids_run ();

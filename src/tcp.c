@@ -4,22 +4,18 @@
  */
 
 #include <config.h>
+#ifndef _WINDOWS
 #include <sys/types.h>
+#include <unistd.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <netinet/in.h>
-#include <netinet/in_systm.h>
-#include <netinet/ip.h>
-#include <netinet/tcp.h>
-#include <netinet/ip_icmp.h>
-
+#include "nids.h"
 #include "checksum.h"
 #include "scan.h"
 #include "tcp.h"
 #include "util.h"
-#include "nids.h"
 #include "hash.h"
 
 #if ! HAVE_TCP_STATES
@@ -291,7 +287,11 @@ static struct tcp_stream* initiate_tcp_resume(struct tcphdr* this_tcphdr, struct
     a_tcp = free_streams;
     if (!a_tcp) {
         fprintf(stderr, "gdb me ...\n");
+#ifdef _WINDOWS
+        system("pause");
+#else
         pause();
+#endif
     }
     free_streams = a_tcp->next_free;
 
@@ -367,7 +367,11 @@ add_new_tcp(struct tcphdr * this_tcphdr, struct ip * this_iphdr)
   a_tcp = free_streams;
   if (!a_tcp) {
     fprintf(stderr, "gdb me ...\n");
+#ifdef _WINDOWS
+    system("pause");
+#else
     pause();
+#endif
   }
   free_streams = a_tcp->next_free;
   
@@ -850,24 +854,23 @@ process_tcp(u_char * data, int skblen)
     }
 
 #ifdef ENABLE_TCPREASM
-    if ((this_tcphdr->th_flags & TH_SYN) != 0 ||
-	(this_tcphdr->th_flags & TH_RST) != 0 ||
-	(this_tcphdr->th_flags & TH_FIN) != 0) {
-	    return;
-    }
-    else {
+    if ((this_tcphdr->th_flags & TH_SYN) ||
+        (this_tcphdr->th_flags & TH_RST) ||
+        (this_tcphdr->th_flags & TH_FIN)) {
+      return;
+    } else {
       struct proc_node *i;
       for (i = tcp_resume_procs; i; i = i->next) {
         int resume;
 
-	i->item(this_tcphdr, this_iphdr, &resume);
-	from_client = (resume == NIDS_TCP_RESUME_CLIENT);
-	a_tcp = initiate_tcp_resume(this_tcphdr, this_iphdr, resume);
+        i->item(this_tcphdr, this_iphdr, &resume);
+        from_client = (resume == NIDS_TCP_RESUME_CLIENT);
+        a_tcp = initiate_tcp_resume(this_tcphdr, this_iphdr, resume);
 
-	if (a_tcp) {
-	  resumed_tcp = 1;
-	  break;
-	}
+        if (a_tcp) {
+          resumed_tcp = 1;
+          break;
+        }
       }
     }
 

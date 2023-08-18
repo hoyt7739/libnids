@@ -4,7 +4,10 @@
 */
 #ifndef _NIDS_TCP_H
 #define _NIDS_TCP_H
+
+#ifndef _WINDOWS
 #include <sys/time.h>
+#endif
 
 struct skbuff {
   struct skbuff *next;

@@ -4,22 +4,23 @@
 */
 
 #include <config.h>
+#ifdef _WINDOWS
+#include <time.h>
+int gettimeofday(struct timeval *, struct timezone *);
+#else
 #include <sys/types.h>
 #include <sys/time.h>
-#include <netinet/in.h>
-#include <netinet/in_systm.h>
-#include <netinet/ip.h>
-#include <netinet/tcp.h>
 #include <arpa/inet.h>
+#endif
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
+#include "nids.h"
 #include "checksum.h"
 #include "ip_fragment.h"
 #include "tcp.h"
 #include "util.h"
-#include "nids.h"
 
 #define IP_CE		0x8000	/* Flag: "Congestion" */
 #define IP_DF		0x4000	/* Flag: "Don't Fragment" */

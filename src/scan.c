@@ -3,14 +3,12 @@
   See the file COPYING for license details.
 */
 
+#ifndef _WINDOWS
 #include <sys/types.h>
 #include <sys/time.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
-#include <netinet/in.h>
-#include <netinet/in_systm.h>
-#include <netinet/ip.h>
-#include <netinet/tcp.h>
 
 #include "nids.h"
 #include "scan.h"

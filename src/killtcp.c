@@ -4,7 +4,11 @@
 */
 
 #include <config.h>
+#ifdef _WINDOWS
+#include <winsock2.h>
+#else
 #include <sys/types.h>
+#endif
 #include <stdlib.h>
 #include "tcp.h"
 #include "util.h"

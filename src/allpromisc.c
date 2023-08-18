@@ -1,5 +1,5 @@
 #include "nids.h"
-#ifdef __linux__
+#ifdef _GNU
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <net/if.h>

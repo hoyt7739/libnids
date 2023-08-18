@@ -1,9 +1,15 @@
+#ifdef _WINDOWS
+#include <io.h>
+#include <winsock2.h>
+extern int gettimeofday(struct timeval *, struct timezone *);
+#else
 #include <sys/types.h>
 #include <sys/time.h>
+#include <unistd.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
-#include <unistd.h>
 
 static u_char xor[12];
 static u_char perm[12];

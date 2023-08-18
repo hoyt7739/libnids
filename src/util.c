@@ -8,9 +8,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "nids.h"
 #include "tcp.h"
 #include "util.h"
-#include "nids.h"
 
 void
 nids_no_mem(char *func)

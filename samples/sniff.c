@@ -3,11 +3,11 @@
    See the file COPYING for license details.
  */
 
+#ifndef _WINDOWS
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/in_systm.h>
 #include <arpa/inet.h>
+#endif
 #include <stdio.h>
 #include <fcntl.h>
 #include "nids.h"
@@ -80,12 +80,12 @@ main ()
   if (logfd < 0)
     {
       perror ("opening ./logfile:");
-      exit (1);
+      return 1;
     }
   if (!nids_init ())
     {
       fprintf (stderr, "%s\n", nids_errbuf);
-      exit (1);
+      return 1;
     }
   nids_register_tcp (sniff_callback);
   nids_run ();
